@@ -191,3 +191,12 @@ def persist(name, value, config='/etc/sysctl.conf', apply_change=False):
         assign(name, value)
         return 'Updated and applied'
     return 'Updated'
+
+
+def keyexists(name):
+    '''
+    .. note::
+
+        This function just returns True for compatability reasons. It should be enhanced in future to check if a given sysctl key exists
+    '''
+    return True

@@ -155,4 +155,13 @@ def persist(name, value, config='/etc/sysctl.conf'):
 
     return 'Updated'
 
+
+def keyexists(name):
+    '''
+    .. note::
+
+        This function just returns True for compatability reasons. It should be enhanced in future to check if a given sysctl key exists
+    '''
+    return True
+
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
