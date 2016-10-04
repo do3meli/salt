@@ -170,3 +170,21 @@ def persist(name, value, config='/etc/sysctl.conf'):
     if config != '/boot/loader.conf':
         assign(name, value)
     return 'Updated'
+
+
+def keyexists(name):
+    '''
+    Checks if a given key exists for modification on the system or not
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' sysctl.keyexists kern.maxvnodes
+    '''
+
+    if 'unknown oid' in __salt__['sysctl.get'](name):
+        return False
+
+    return True
+
