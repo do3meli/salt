@@ -27,6 +27,7 @@ def __virtual__():
     return 'sysctl.show' in __salt__
 
 
+
 def present(name, value, config=None):
     '''
     Ensure that the named sysctl value is set in memory and persisted to the
@@ -48,6 +49,8 @@ def present(name, value, config=None):
            'changes': {},
            'comment': ''}
 
+    current = __salt__['sysctl.get'](name)
+
     if config is None:
         # Certain linux systems will ignore /etc/sysctl.conf, get the right
         # default configuration file.
@@ -56,56 +59,48 @@ def present(name, value, config=None):
         else:
             config = '/etc/sysctl.conf'
 
-    if __opts__['test']:
-        current = __salt__['sysctl.show']()
-        configured = __salt__['sysctl.show'](config_file=config)
-        if not configured:
-            ret['result'] = None
-            ret['comment'] = (
-                'Sysctl option {0} might be changed, we failed to check '
-                'config file at {1}. The file is either unreadable, or '
-                'missing.'.format(name, config)
-            )
-            return ret
-        if name in current and name not in configured:
-            if re.sub(' +|\t+', ' ', current[name]) != \
-                    re.sub(' +|\t+', ' ', str(value)):
-                ret['result'] = None
-                ret['comment'] = (
-                    'Sysctl option {0} set to be changed to {1}'
-                    .format(name, value)
-                )
-                return ret
-            else:
-                ret['result'] = None
-                ret['comment'] = (
-                    'Sysctl value is currently set on the running system but '
-                    'not in a config file. Sysctl option {0} set to be '
-                    'changed to {1} in config file.'.format(name, value)
-                )
-                return ret
-        elif name in configured and name not in current:
-            ret['result'] = None
-            ret['comment'] = (
-                'Sysctl value {0} is present in configuration file but is not '
-                'present in the running config. The value {0} is set to be '
-                'changed to {1}'.format(name, value)
-            )
-            return ret
-        elif name in configured and name in current:
-            if str(value).split() == __salt__['sysctl.get'](name).split():
-                ret['result'] = True
-                ret['comment'] = (
-                    'Sysctl value {0} = {1} is already set'
-                    .format(name, value)
-                )
-                return ret
-        # otherwise, we don't have it set anywhere and need to set it
-        ret['result'] = None
-        ret['comment'] = (
-            'Sysctl option {0} would be changed to {1}'.format(name, value)
-        )
+    if 'unknown oid' in current:
+        # previous versions of this state wrote an unknown oid to the
+        # given config file even if the state failed to persist the key/value
+        # in memory. now abort very early if one tries to do this.
+        ret['result'] = False
+        ret['comment'] = ('This sysctl parameter is unknown to the system')
         return ret
+
+    if __opts__['test']:
+
+        configured = __salt__['sysctl.show'](config_file=config)
+
+        # eval comparison first for faster test
+        memory_value_correct = str(current).split() == str(value).split()
+        config_value_correct = str(configured[name]).split() == str(value).split()
+
+        if memory_value_correct and config_value_correct:
+            ret['result'] = True
+            ret['comment'] = ('Sysctl value {0} = {1} is already set'.format(name, value))
+            return ret
+
+        elif memory_value_correct and not config_value_correct:
+            ret['result'] = None
+            ret['changes'] = { 'old' : configured[name], 'new' : value }
+            ret['comment'] = ('Sysctl value is currently set on the running system but not '
+                              'correct in config file. Will adjust config file accordingly.')
+            return ret
+
+        elif not memory_value_correct and config_value_correct:
+            ret['result'] = None
+            ret['changes'] = { 'old' : str(current), 'new' : str(value) }
+            ret['comment'] = ('Current running sysctl configuration is different from config. '
+                              'Will adjust running sysctl value.')
+            return ret
+
+        else:
+            # use "else" instead of "not memory_value_correct and not config_value_correct"
+            # to make sure we return at least something before actual execution...
+            ret['result'] = None
+            ret['changes'] = { 'new' : value }
+            ret['comment'] = ('Sysctl option set to be changed.')
+            return ret
 
     try:
         update = __salt__['sysctl.persist'](name, value, config)
