@@ -255,3 +255,20 @@ def persist(name, value, config=None):
 
     assign(name, value)
     return 'Updated'
+
+
+def keyexists(name):
+    '''
+    Checks if a given key exists for modification on the system or not
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' sysctl.keyexists kern.maxvnodes
+    '''
+    keyerror = ['unknown key','cannot stat', 'No such file']
+    if any(x in __salt__['sysctl.get'](name) for x in keyerror):
+        return False
+
+    return True
