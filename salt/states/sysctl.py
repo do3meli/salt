@@ -59,8 +59,8 @@ def present(name, value, config=None):
         else:
             config = '/etc/sysctl.conf'
 
-    if 'unknown oid' in current:
-        # previous versions of this state wrote an unknown oid to the
+    if not __salt__['sysctl.keyexists'](name):
+        # previous versions of this state wrote an unknown oid to the 
         # given config file even if the state failed to persist the key/value
         # in memory. now abort very early if one tries to do this.
         ret['result'] = False
